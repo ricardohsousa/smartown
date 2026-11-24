@@ -1,0 +1,7 @@
+node_modules/
+dist/
+test-results.xml
+*.zip
+.env
+deploy/secrets/
+.DS_Store

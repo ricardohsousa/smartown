@@ -1,0 +1,167 @@
+name: Deploy production
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+env:
+  IMAGEM: ghcr.io/ricardohsousa/smartown
+
+jobs:
+  ci:
+    name: CI
+    uses: ./.github/workflows/ci.yml
+
+  conferir:
+    name: Conferir release
+    needs: ci
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      packages: read
+    outputs:
+      imagem: ${{ steps.imagem.outputs.imagem }}
+    steps:
+      - name: A tag corresponde à versão do package.json
+        run: |
+          if [ "$GITHUB_REF_NAME" != "v${{ needs.ci.outputs.versao }}" ]; then
+            echo "::error::Tag $GITHUB_REF_NAME diferente da versão v${{ needs.ci.outputs.versao }} do package.json"
+            exit 1
+          fi
+
+      - name: Este commit é o que está em staging
+        run: |
+          curl -fsS https://staging.smartown.tech/version.json | tee version.json
+          if ! grep -q "$GITHUB_SHA" version.json; then
+            echo "::error::Staging não está rodando $GITHUB_SHA. Só vai para produção o que foi homologado."
+            exit 1
+          fi
+
+      - name: Login no GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Localizar a imagem homologada
+        id: imagem
+        run: |
+          digest=$(docker buildx imagetools inspect "$IMAGEM:$GITHUB_SHA" --format '{{json .Manifest.Digest}}' | tr -d '"')
+          echo "imagem=$IMAGEM@$digest" >> "$GITHUB_OUTPUT"
+
+  deploy:
+    name: Deploy production
+    needs: conferir
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment:
+      name: production
+      url: https://smartown.tech
+    permissions:
+      contents: read
+      packages: read
+    env:
+      AMBIENTE: production
+      ALIAS: smartown-prod
+      URL: https://smartown.tech
+      NOVA: ${{ needs.conferir.outputs.imagem }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configurar acesso SSH à VPS
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+          VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+          VPS_KNOWN_HOSTS: ${{ secrets.VPS_KNOWN_HOSTS }}
+        run: |
+          mkdir -p ~/.ssh
+          printf '%s\n' "$VPS_SSH_KEY" > ~/.ssh/vps
+          printf '%s\n' "$VPS_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/vps
+          cat > ~/.ssh/config <<EOF
+          Host vps
+            HostName $VPS_HOST
+            User $VPS_USER
+            IdentityFile ~/.ssh/vps
+            IdentitiesOnly yes
+            StrictHostKeyChecking yes
+            BatchMode yes
+          EOF
+
+      - name: Enviar configuração e token do túnel
+        env:
+          CF_TUNNEL_TOKEN: ${{ secrets.CF_TUNNEL_TOKEN }}
+        run: |
+          ssh vps 'mkdir -p ~/smartown/secrets && chmod 700 ~/smartown ~/smartown/secrets'
+          scp deploy/compose.app.yml deploy/compose.edge.yml vps:smartown/
+          printf '%s\n' "$CF_TUNNEL_TOKEN" | ssh vps 'cd ~/smartown/secrets && cat > token.tmp && chmod 444 token.tmp && mv -f token.tmp tunnel-token'
+
+      - name: Guardar a versão atual (para rollback)
+        id: atual
+        run: echo "anterior=$(ssh vps "cat ~/smartown/$AMBIENTE.image 2>/dev/null || true")" >> "$GITHUB_OUTPUT"
+
+      - name: Baixar a imagem homologada
+        env:
+          REGISTRY_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          echo "$REGISTRY_TOKEN" | ssh vps "docker login ghcr.io -u $GITHUB_ACTOR --password-stdin"
+          ssh vps "docker pull $NOVA"
+          ssh vps "docker logout ghcr.io"
+
+      - name: Subir o túnel e a nova versão
+        run: |
+          ssh vps "docker network inspect smartown >/dev/null 2>&1 || docker network create smartown"
+          ssh vps "cd ~/smartown && docker compose -p smartown-edge -f compose.edge.yml up -d"
+          ssh vps "cd ~/smartown && SMARTOWN_IMAGE=$NOVA SMARTOWN_ALIAS=$ALIAS docker compose -p smartown-$AMBIENTE -f compose.app.yml up -d --wait"
+
+      - name: Verificar a versão publicada (monitoramento pós-deploy)
+        run: |
+          curl -fsS --retry 10 --retry-all-errors --retry-delay 5 "$URL/version.json" | tee version.json
+          grep -q "$GITHUB_SHA" version.json
+
+      - name: Registrar o deploy
+        run: |
+          ssh vps "echo $NOVA > ~/smartown/$AMBIENTE.image"
+          ssh vps "echo \"\$(date -u +%FT%TZ) $AMBIENTE $GITHUB_SHA $NOVA\" >> ~/smartown/deploys.log"
+          echo "Publicado em $URL: \`$GITHUB_SHA\` ($GITHUB_REF_NAME)" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Rollback para a versão anterior
+        if: failure() && steps.atual.outputs.anterior != ''
+        env:
+          ANTERIOR: ${{ steps.atual.outputs.anterior }}
+        run: |
+          echo "::warning::Deploy falhou. Restaurando $ANTERIOR"
+          ssh vps "cd ~/smartown && SMARTOWN_IMAGE=$ANTERIOR SMARTOWN_ALIAS=$ALIAS docker compose -p smartown-$AMBIENTE -f compose.app.yml up -d --wait"
+
+  release:
+    name: GitHub Release
+    needs: deploy
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write
+    steps:
+      - name: Baixar o build
+        uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+      - name: Publicar a release com o artefato
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          (cd dist && zip -qr "../smartown-$GITHUB_REF_NAME.zip" .)
+          gh release create "$GITHUB_REF_NAME" "smartown-$GITHUB_REF_NAME.zip" \
+            --repo "$GITHUB_REPOSITORY" --title "SmarTown $GITHUB_REF_NAME" --generate-notes \
+            --notes "Commit: $GITHUB_SHA · Imagem: $IMAGEM:$GITHUB_SHA"

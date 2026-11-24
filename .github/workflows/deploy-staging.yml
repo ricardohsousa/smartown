@@ -1,0 +1,151 @@
+name: Deploy staging
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-staging
+  cancel-in-progress: false
+
+env:
+  IMAGEM: ghcr.io/ricardohsousa/smartown
+
+jobs:
+  ci:
+    name: CI
+    uses: ./.github/workflows/ci.yml
+
+  imagem:
+    name: Imagem Docker
+    needs: ci
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      imagem: ${{ steps.publicar.outputs.imagem }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Baixar o build aprovado no CI
+        uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+      - name: Construir a imagem
+        run: |
+          docker build \
+            --build-arg VERSION="${{ needs.ci.outputs.versao }}" \
+            --build-arg COMMIT="$GITHUB_SHA" \
+            -t "$IMAGEM:$GITHUB_SHA" .
+
+      - name: Testar a imagem
+        run: |
+          docker run -d --name teste --read-only --tmpfs /tmp --cap-drop ALL -p 8080:80 "$IMAGEM:$GITHUB_SHA"
+          curl -fsS --retry 10 --retry-connrefused --retry-delay 1 http://localhost:8080/health
+          curl -fsS http://localhost:8080/version.json | grep "$GITHUB_SHA"
+          docker rm -f teste
+
+      - name: Login no GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Publicar a imagem
+        id: publicar
+        run: |
+          docker push "$IMAGEM:$GITHUB_SHA"
+          echo "imagem=$(docker inspect -f '{{index .RepoDigests 0}}' "$IMAGEM:$GITHUB_SHA")" >> "$GITHUB_OUTPUT"
+
+  deploy:
+    name: Deploy staging
+    needs: imagem
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment:
+      name: staging
+      url: https://staging.smartown.tech
+    permissions:
+      contents: read
+      packages: read
+    env:
+      AMBIENTE: staging
+      ALIAS: smartown-staging
+      URL: https://staging.smartown.tech
+      NOVA: ${{ needs.imagem.outputs.imagem }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configurar acesso SSH à VPS
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+          VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+          VPS_KNOWN_HOSTS: ${{ secrets.VPS_KNOWN_HOSTS }}
+        run: |
+          mkdir -p ~/.ssh
+          printf '%s\n' "$VPS_SSH_KEY" > ~/.ssh/vps
+          printf '%s\n' "$VPS_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/vps
+          cat > ~/.ssh/config <<EOF
+          Host vps
+            HostName $VPS_HOST
+            User $VPS_USER
+            IdentityFile ~/.ssh/vps
+            IdentitiesOnly yes
+            StrictHostKeyChecking yes
+            BatchMode yes
+          EOF
+
+      - name: Enviar configuração e token do túnel
+        env:
+          CF_TUNNEL_TOKEN: ${{ secrets.CF_TUNNEL_TOKEN }}
+        run: |
+          ssh vps 'mkdir -p ~/smartown/secrets && chmod 700 ~/smartown ~/smartown/secrets'
+          scp deploy/compose.app.yml deploy/compose.edge.yml vps:smartown/
+          printf '%s\n' "$CF_TUNNEL_TOKEN" | ssh vps 'cd ~/smartown/secrets && cat > token.tmp && chmod 444 token.tmp && mv -f token.tmp tunnel-token'
+
+      - name: Guardar a versão atual (para rollback)
+        id: atual
+        run: echo "anterior=$(ssh vps "cat ~/smartown/$AMBIENTE.image 2>/dev/null || true")" >> "$GITHUB_OUTPUT"
+
+      - name: Baixar a nova imagem
+        env:
+          REGISTRY_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          echo "$REGISTRY_TOKEN" | ssh vps "docker login ghcr.io -u $GITHUB_ACTOR --password-stdin"
+          ssh vps "docker pull $NOVA"
+          ssh vps "docker logout ghcr.io"
+
+      - name: Subir o túnel e a nova versão
+        run: |
+          ssh vps "docker network inspect smartown >/dev/null 2>&1 || docker network create smartown"
+          ssh vps "cd ~/smartown && docker compose -p smartown-edge -f compose.edge.yml up -d"
+          ssh vps "cd ~/smartown && SMARTOWN_IMAGE=$NOVA SMARTOWN_ALIAS=$ALIAS docker compose -p smartown-$AMBIENTE -f compose.app.yml up -d --wait"
+
+      - name: Verificar a versão publicada
+        run: |
+          curl -fsS --retry 10 --retry-all-errors --retry-delay 5 "$URL/version.json" | tee version.json
+          grep -q "$GITHUB_SHA" version.json
+
+      - name: Registrar o deploy
+        run: |
+          ssh vps "echo $NOVA > ~/smartown/$AMBIENTE.image"
+          ssh vps "echo \"\$(date -u +%FT%TZ) $AMBIENTE $GITHUB_SHA $NOVA\" >> ~/smartown/deploys.log"
+          echo "Publicado em $URL: \`$GITHUB_SHA\`" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Rollback para a versão anterior
+        if: failure() && steps.atual.outputs.anterior != ''
+        env:
+          ANTERIOR: ${{ steps.atual.outputs.anterior }}
+        run: |
+          echo "::warning::Deploy falhou. Restaurando $ANTERIOR"
+          ssh vps "cd ~/smartown && SMARTOWN_IMAGE=$ANTERIOR SMARTOWN_ALIAS=$ALIAS docker compose -p smartown-$AMBIENTE -f compose.app.yml up -d --wait"

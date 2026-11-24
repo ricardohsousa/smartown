@@ -1,0 +1,23 @@
+services:
+  web:
+    image: ${SMARTOWN_IMAGE:?Informe SMARTOWN_IMAGE}
+    restart: unless-stopped
+    networks:
+      smartown:
+        aliases: ["${SMARTOWN_ALIAS:?Informe SMARTOWN_ALIAS}"]
+    read_only: true
+    tmpfs:
+      - /tmp:size=16m
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    cpus: 0.25
+    mem_limit: 128m
+    pids_limit: 64
+    logging:
+      driver: json-file
+      options: { max-size: "5m", max-file: "3" }
+
+networks:
+  smartown:
+    external: true
+    name: smartown

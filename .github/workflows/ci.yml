@@ -1,0 +1,63 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  workflow_call:
+    outputs:
+      versao:
+        description: Versão do package.json
+        value: ${{ jobs.build-test.outputs.versao }}
+
+permissions:
+  contents: read
+
+jobs:
+  build-test:
+    name: Build & Test
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    outputs:
+      versao: ${{ steps.versao.outputs.versao }}
+    steps:
+      - name: Obter o código
+        uses: actions/checkout@v4
+
+      - name: Preparar Node.js (versão do .nvmrc)
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Instalar dependências (versões exatas do package-lock.json)
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Testes automatizados
+        run: npm run test:ci
+
+      - name: Guardar resultado dos testes
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: resultado-testes
+          path: test-results.xml
+          if-no-files-found: ignore
+
+      - name: Build (gera dist/ e version.json)
+        run: npm run build
+
+      - name: Auditoria de dependências
+        run: npm audit --audit-level=high
+
+      - name: Ler a versão
+        id: versao
+        run: echo "versao=$(node -p "require('./package.json').version")" >> "$GITHUB_OUTPUT"
+
+      - name: Guardar o build
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/
