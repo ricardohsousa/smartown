@@ -5,22 +5,61 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="application-name" content="SmarTown" />
     <meta name="description" content="SmarTown: registre e acompanhe problemas urbanos do seu bairro." />
-    <title>SmarTown · Ocorrências urbanas</title>
+    <title>SmarTown · Seu bairro está com problemas? RECLAME AQUI.</title>
     <link rel="stylesheet" href="css/style.css" />
     <script type="module" src="js/app.js"></script>
   </head>
   <body>
     <header class="topo">
       <div class="container">
-        <h1 class="marca">Smar<span>Town</span></h1>
-        <p class="topo__lema">Registre e acompanhe problemas urbanos do seu bairro.</p>
+        <h1>SmarTown - Seu bairro está com problemas? RECLAME AQUI</h1>
+        <p class="topo__lema">Registre e acompanhe as ocorrências de problemas urbanos do seu bairro.</p>
       </div>
     </header>
 
     <main class="container">
       <section class="cartao">
-        <h2>Em construção</h2>
-        <p>As funcionalidades de cadastro, listagem e resumo de ocorrências serão adicionadas em breve.</p>
+        <div class="grup-buttons">
+          <button type="button" onclick="window.location.href='registro.html'">Registrar</button>
+          <button id="botao-listar" type="button" aria-expanded="false" aria-controls="lista-ocorrencias">Listar</button>
+          <button id="botao-resumo" type="button" aria-expanded="false" aria-controls="resumo-ocorrencias">Resumo</button>
+        </div>
+
+        <section id="lista-ocorrencias" class="painel-ocorrencias" aria-labelledby="titulo-lista" hidden>
+          <h2 id="titulo-lista">Ocorrências registradas</h2>
+          <div class="tabela-responsiva">
+            <table>
+              <thead>
+                <tr>
+                  <th scope="col">Categoria</th>
+                  <th scope="col">Descrição</th>
+                  <th scope="col">Bairro</th>
+                  <th scope="col">Urgência</th>
+                  <th scope="col">Status</th>
+                </tr>
+              </thead>
+              <tbody id="linhas-lista"></tbody>
+            </table>
+          </div>
+          <p class="mensagem-vazia" id="vazio-lista" hidden>Nenhuma ocorrência cadastrada.</p>
+        </section>
+
+        <section id="resumo-ocorrencias" class="painel-ocorrencias" aria-labelledby="titulo-resumo" hidden>
+          <h2 id="titulo-resumo">Resumo das ocorrências</h2>
+          <div class="tabela-responsiva">
+            <table>
+              <thead>
+                <tr>
+                  <th scope="col">Categoria</th>
+                  <th scope="col">Descrição</th>
+                  <th scope="col">Status</th>
+                </tr>
+              </thead>
+              <tbody id="linhas-resumo"></tbody>
+            </table>
+          </div>
+          <p class="mensagem-vazia" id="vazio-resumo" hidden>Nenhuma ocorrência cadastrada.</p>
+        </section>
       </section>
     </main>
 
