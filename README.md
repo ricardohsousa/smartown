@@ -150,15 +150,38 @@ Os testes ficam em `tests/` e são adicionados junto com cada funcionalidade. El
 
 ### Publicar uma versão
 
-1. Abra um PR atualizando o campo `version` do `package.json` e faça o merge.
-2. Aguarde o **Deploy staging** e confira https://staging.smartown.tech.
-3. Crie a tag no mesmo commit:
+O push de uma tag `vX.Y.Z` dispara o workflow **Deploy production**. O `git push` comum não envia tags, então a tag precisa ser enviada pelo nome.
+
+1. Abra um PR atualizando o campo `version` do `package.json` (por exemplo, `0.1.0` → `0.2.0`) e faça o merge.
+2. Aguarde o **Deploy staging** terminar e confira https://staging.smartown.tech.
+3. Confira se o commit local é o mesmo que está em staging:
    ```bash
    git switch main && git pull
+   git rev-parse HEAD
+   curl -s https://staging.smartown.tech/version.json
+   ```
+4. Crie a tag anotada e envie:
+   ```bash
    git tag -a v0.2.0 -m "SmarTown v0.2.0"
    git push origin v0.2.0
    ```
-4. Em **Actions → Deploy production**, aprove o deploy em *Review deployments*.
+5. Em **Actions → Deploy production**, o run para em *Waiting*. Clique em **Review deployments**, marque **production** e depois em **Approve and deploy**.
+6. Confira https://smartown.tech e a release em **Releases**, com o `.zip` do build.
+
+O job **Conferir release** só deixa seguir se:
+- o nome da tag for igual a `v` + a versão do `package.json`;
+- o commit da tag for o mesmo que está rodando em staging.
+
+Comandos úteis:
+
+```bash
+git tag                         # tags locais
+git show v0.2.0                 # tag e commit para onde ela aponta
+git ls-remote --tags origin     # tags publicadas no GitHub
+git tag -d v0.2.0               # apaga uma tag local criada por engano (antes do push)
+```
+
+Uma tag já publicada é uma baseline de release e não deve ser alterada nem reaproveitada. Se a versão tiver um problema, corrija pelo fluxo normal e publique uma nova versão (por exemplo, `v0.2.1`).
 
 ## 10. Fluxo de trabalho
 
