@@ -1,0 +1,82 @@
+import { describe, it } from 'node:test';
+import assert from 'node:assert/strict';
+import {
+  validarOcorrencia,
+  criarOcorrencia,
+  filtrarOcorrencias,
+  alternarStatus,
+  calcularResumo,
+} from '../src/js/ocorrencias.js';
+
+describe('Regras de Negócio - SmarTown', () => {
+  it('deve rejeitar ocorrência com campos obrigatórios vazios ou inválidos', () => {
+    const resultado = validarOcorrencia({
+      descricao: '  ',
+      categoria: '',
+      bairro: '',
+      urgencia: 'Inexistente',
+    });
+
+    assert.equal(resultado.valido, false);
+    assert.ok(resultado.erros.length >= 3);
+  });
+
+  it('deve cadastrar uma ocorrência válida com status inicial Aberta', () => {
+    const dados = {
+      descricao: 'Poste com lâmpada queimada na esquina',
+      categoria: 'Iluminação Pública',
+      bairro: 'Centro',
+      urgencia: 'Alta',
+    };
+
+    const lista = criarOcorrencia([], dados);
+
+    assert.equal(lista.length, 1);
+    assert.equal(lista[0].descricao, dados.descricao);
+    assert.equal(lista[0].categoria, 'Iluminação Pública');
+    assert.equal(lista[0].bairro, 'Centro');
+    assert.equal(lista[0].status, 'Aberta');
+    assert.ok(lista[0].id);
+  });
+
+  it('deve filtrar ocorrências por categoria e por status', () => {
+    const base = [
+      { id: '1', descricao: 'Buraco na rua', categoria: 'Buracos', bairro: 'Vila Nova', urgencia: 'Alta', status: 'Aberta' },
+      { id: '2', descricao: 'Lixo acumulado', categoria: 'Descarte Irregular', bairro: 'Centro', urgencia: 'Média', status: 'Resolvida' },
+      { id: '3', descricao: 'Semáforo apagado', categoria: 'Iluminação Pública', bairro: 'Centro', urgencia: 'Alta', status: 'Aberta' },
+    ];
+
+    const apenasAbertas = filtrarOcorrencias(base, { status: 'Aberta' });
+    const apenasBuracos = filtrarOcorrencias(base, { categoria: 'Buracos' });
+
+    assert.equal(apenasAbertas.length, 2);
+    assert.equal(apenasBuracos.length, 1);
+    assert.equal(apenasBuracos[0].id, '1');
+  });
+
+  it('deve atualizar o status da ocorrência de Aberta para Resolvida', () => {
+    const base = [
+      { id: '10', descricao: 'Bueiro entupido', categoria: 'Infraestrutura', bairro: 'Jardim América', urgencia: 'Alta', status: 'Aberta' },
+    ];
+
+    const atualizada = alternarStatus(base, '10');
+
+    assert.equal(atualizada[0].status, 'Resolvida');
+  });
+
+  it('deve calcular corretamente o resumo quantitativo dos chamados', () => {
+    const base = [
+      { id: '1', status: 'Aberta' },
+      { id: '2', status: 'Aberta' },
+      { id: '3', status: 'Resolvida' },
+    ];
+
+    const resumo = calcularResumo(base);
+
+    assert.deepEqual(resumo, {
+      total: 3,
+      abertas: 2,
+      resolvidas: 1,
+    });
+  });
+});
