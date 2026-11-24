@@ -48,7 +48,18 @@ jobs:
       - name: Testar a imagem
         run: |
           docker run -d --name teste --read-only --tmpfs /tmp --cap-drop ALL -p 8080:80 "$IMAGEM:$GITHUB_SHA"
-          curl -fsS --retry 10 --retry-connrefused --retry-delay 1 http://localhost:8080/health
+          for _ in $(seq 1 30); do
+            status=$(docker inspect -f '{{.State.Health.Status}}' teste)
+            echo "Healthcheck: $status"
+            [ "$status" = healthy ] && break
+            [ "$(docker inspect -f '{{.State.Running}}' teste)" = true ] || break
+            sleep 2
+          done
+          if [ "$status" != healthy ]; then
+            docker logs teste
+            exit 1
+          fi
+          curl -fsS http://localhost:8080/health
           curl -fsS http://localhost:8080/version.json | grep "$GITHUB_SHA"
           docker rm -f teste
 
