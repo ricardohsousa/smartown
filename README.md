@@ -164,6 +164,8 @@ Os testes ficam em `tests/` e usam o executor nativo do Node.
 | Arquivo | O que verifica |
 |---|---|
 | `tests/build.test.js` | O build gera os arquivos obrigatórios e um `version.json` com a versão do `package.json` |
+| `tests/ocorrencias.test.js` | Validação, cadastro, filtros, mudança de situação e resumo |
+| `tests/storage.test.js` | Gravação e leitura das ocorrências, com descarte de registros inválidos |
 
 As regras ficam em `src/js/ocorrencias.js`, separadas da interface, para serem testadas sem navegador. No CI, o resultado é salvo em `test-results.xml` e publicado como artefato do run.
 
