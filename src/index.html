@@ -5,69 +5,116 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="application-name" content="SmarTown" />
     <meta name="description" content="SmarTown: registre e acompanhe problemas urbanos do seu bairro." />
-    <title>SmarTown · Seu bairro está com problemas? RECLAME AQUI.</title>
+    <meta name="theme-color" content="#ffffff" />
+    <title>SmarTown: problemas urbanos do seu bairro</title>
+    <link rel="icon" type="image/png" href="img/favicon.png" />
+    <link rel="preload" href="fonts/onest.woff2" as="font" type="font/woff2" crossorigin />
     <link rel="stylesheet" href="css/style.css" />
     <script type="module" src="js/app.js"></script>
   </head>
   <body>
-    <header class="topo">
-      <div class="container">
-        <h1>SmarTown - Seu bairro está com problemas? RECLAME AQUI</h1>
-        <p class="topo__lema">Registre e acompanhe as ocorrências de problemas urbanos do seu bairro.</p>
-      </div>
+    <svg class="simbolos" aria-hidden="true">
+      <symbol id="icone-iluminacao" viewBox="0 0 24 24"><path d="M9 21h6M10 18h4M8.2 14.5A6 6 0 1 1 15.8 14.5c-.8.7-1.3 1.4-1.3 2.5h-5c0-1.1-.5-1.8-1.3-2.5Z"/></symbol>
+      <symbol id="icone-buracos" viewBox="0 0 24 24"><path d="M7 3 3 21M17 3l4 18M12 3v3M12 18v3"/><ellipse cx="12" cy="12" rx="4" ry="2.5"/></symbol>
+      <symbol id="icone-descarte" viewBox="0 0 24 24"><path d="M4 7h16M9 7V4h6v3M6 7l1 14h10l1-14M10 11v6M14 11v6"/></symbol>
+      <symbol id="icone-outros" viewBox="0 0 24 24"><path d="M12 21s-7-6.2-7-11.5a7 7 0 0 1 14 0C19 14.8 12 21 12 21Z"/><circle cx="12" cy="9.5" r="2.3"/></symbol>
+    </svg>
+    <a class="pular" href="#conteudo">Ir para o conteúdo</a>
+    <header class="topo container">
+      <a class="marca" href="./" aria-label="SmarTown, página inicial">
+        <img src="img/simbolo.png" alt="" width="38" height="56" />
+        <img src="img/nome.png" alt="" width="179" height="28" />
+      </a>
+      <a class="topo__link" href="#ocorrencias">Ver ocorrências</a>
     </header>
 
-    <main class="container">
-      <section class="cartao">
-        <div class="grup-buttons">
-          <button type="button" onclick="window.location.href='registro.html'">Registrar</button>
-          <button id="botao-listar" type="button" aria-expanded="false" aria-controls="lista-ocorrencias">Listar</button>
-          <button id="botao-resumo" type="button" aria-expanded="false" aria-controls="resumo-ocorrencias">Resumo</button>
+    <main class="container" id="conteudo">
+      <section class="abertura">
+        <div class="abertura__texto">
+          <h1>Viu um problema na rua? Registre aqui.</h1>
+          <p>Poste apagado, buraco ou entulho: descreva o que aconteceu e acompanhe até resolver.</p>
         </div>
-
-        <section id="lista-ocorrencias" class="painel-ocorrencias" aria-labelledby="titulo-lista" hidden>
-          <h2 id="titulo-lista">Ocorrências registradas</h2>
-          <div class="tabela-responsiva">
-            <table>
-              <thead>
-                <tr>
-                  <th scope="col">Categoria</th>
-                  <th scope="col">Descrição</th>
-                  <th scope="col">Bairro</th>
-                  <th scope="col">Urgência</th>
-                  <th scope="col">Status</th>
-                </tr>
-              </thead>
-              <tbody id="linhas-lista"></tbody>
-            </table>
-          </div>
-          <p class="mensagem-vazia" id="vazio-lista" hidden>Nenhuma ocorrência cadastrada.</p>
-        </section>
-
-        <section id="resumo-ocorrencias" class="painel-ocorrencias" aria-labelledby="titulo-resumo" hidden>
-          <h2 id="titulo-resumo">Resumo das ocorrências</h2>
-          <div class="tabela-responsiva">
-            <table>
-              <thead>
-                <tr>
-                  <th scope="col">Categoria</th>
-                  <th scope="col">Descrição</th>
-                  <th scope="col">Status</th>
-                </tr>
-              </thead>
-              <tbody id="linhas-resumo"></tbody>
-            </table>
-          </div>
-          <p class="mensagem-vazia" id="vazio-resumo" hidden>Nenhuma ocorrência cadastrada.</p>
+        <svg class="cidade" viewBox="0 0 560 250" aria-hidden="true">
+          <path d="M-400 246h2400M34 246V142l58-34v138M92 246V72l70-44v218M162 246V116l54 32v98M262 246V96h66v150M328 246V150l62-36v132M440 246V132q0-22 22-22h20" />
+          <path d="M112 92v22M138 76v22M112 138v22M138 122v22M112 184v22M138 168v22M54 160v20M54 202v20M284 122h22M284 152h22M284 182h22M352 166v22M352 208v18M186 162v20M186 204v20" />
+          <path class="cidade__claro" d="M216 190h22l24-24M390 190h24l26-26M482 110l-18 40h40Z" />
+          <circle cx="216" cy="190" r="8" /><circle cx="390" cy="190" r="8" /><circle cx="162" cy="28" r="8" /><circle cx="482" cy="110" r="8" />
+        </svg>
+        <section class="registro" aria-labelledby="titulo-registro">
+          <h2 id="titulo-registro">Nova ocorrência</h2>
+          <form id="formulario" novalidate>
+            <fieldset class="campo" id="grupo-categoria" aria-describedby="erro-categoria">
+              <legend>Categoria</legend>
+              <div class="opcoes opcoes--categoria">
+                <label class="opcao opcao--categoria"><input type="radio" name="categoria" value="Iluminação Pública" required /><svg class="icone" aria-hidden="true"><use href="#icone-iluminacao" /></svg><span>Iluminação Pública</span></label>
+                <label class="opcao opcao--categoria"><input type="radio" name="categoria" value="Buracos" /><svg class="icone" aria-hidden="true"><use href="#icone-buracos" /></svg><span>Buracos</span></label>
+                <label class="opcao opcao--categoria"><input type="radio" name="categoria" value="Descarte Irregular" /><svg class="icone" aria-hidden="true"><use href="#icone-descarte" /></svg><span>Descarte Irregular</span></label>
+                <label class="opcao opcao--categoria"><input type="radio" name="categoria" value="Outros" /><svg class="icone" aria-hidden="true"><use href="#icone-outros" /></svg><span>Outros</span></label>
+              </div>
+              <p class="erro" id="erro-categoria"></p>
+            </fieldset>
+            <div class="campo">
+              <div class="campo__linha"><label for="descricao">Descrição</label><span class="contador" id="contador"></span></div>
+              <textarea id="descricao" name="descricao" rows="3" required aria-describedby="contador erro-descricao"></textarea>
+              <p class="erro" id="erro-descricao"></p>
+            </div>
+            <div class="campo">
+              <label for="bairro">Bairro</label>
+              <input id="bairro" name="bairro" type="text" required aria-describedby="erro-bairro" />
+              <p class="erro" id="erro-bairro"></p>
+            </div>
+            <fieldset class="campo" id="grupo-urgencia" aria-describedby="erro-urgencia">
+              <legend>Urgência</legend>
+              <div class="opcoes">
+                <label class="opcao"><input type="radio" name="urgencia" value="Baixa" required /><span>Baixa</span></label>
+                <label class="opcao"><input type="radio" name="urgencia" value="Média" /><span>Média</span></label>
+                <label class="opcao"><input type="radio" name="urgencia" value="Alta" /><span>Alta</span></label>
+              </div>
+              <p class="erro" id="erro-urgencia"></p>
+            </fieldset>
+            <button class="botao botao--principal" type="submit">Registrar ocorrência</button>
+            <p class="aviso" id="aviso-formulario" role="status"></p>
+          </form>
         </section>
       </section>
+
+      <div class="grade">
+        <section class="painel" id="ocorrencias" aria-labelledby="titulo-lista">
+          <div class="painel__topo">
+            <h2 id="titulo-lista" tabindex="-1">Ocorrências</h2>
+            <div class="filtros">
+              <fieldset class="segmentos" id="filtro-status">
+                <legend class="oculto">Filtrar por status</legend>
+                <label><input type="radio" name="filtro-status" value="" autocomplete="off" checked /><span>Todas</span></label>
+                <label><input type="radio" name="filtro-status" value="Aberta" autocomplete="off" /><span>Abertas</span></label>
+                <label><input type="radio" name="filtro-status" value="Resolvida" autocomplete="off" /><span>Resolvidas</span></label>
+              </fieldset>
+              <select id="filtro-categoria" aria-label="Filtrar por categoria" autocomplete="off"><option value="">Todas as categorias</option></select>
+              <button class="botao botao--texto" id="limpar-filtros" type="button" hidden>Limpar filtros</button>
+            </div>
+          </div>
+          <p class="aviso" id="aviso-lista" role="status"></p>
+          <ul class="lista" id="lista"></ul>
+          <div class="vazio" id="vazio"><svg class="icone" aria-hidden="true"><use href="#icone-outros" /></svg><p id="vazio-texto"></p></div>
+        </section>
+
+        <aside class="resumo" aria-labelledby="titulo-resumo">
+          <h2 id="titulo-resumo">Resumo</h2>
+          <dl class="resumo__numeros">
+            <div><dt>Abertas</dt><dd id="resumo-abertas">0</dd></div>
+            <div><dt>Resolvidas</dt><dd id="resumo-resolvidas">0</dd></div>
+            <div><dt>Total</dt><dd id="resumo-total">0</dd></div>
+          </dl>
+          <h3>Por categoria</h3>
+          <ul class="barras" id="resumo-categorias"></ul>
+        </aside>
+      </div>
     </main>
 
-    <footer class="rodape">
-      <div class="container">
-        <small>SmarTown · Gerência de Configuração e Manutenção de Software · UTFPR</small>
-        <small id="versao" class="versao"></small>
-      </div>
+    <footer class="rodape container">
+      <img src="img/utfpr.png" alt="UTFPR" width="89" height="32" />
+      <p>Gerência de Configuração e Manutenção de Software</p>
+      <p class="versao" id="versao"></p>
     </footer>
   </body>
 </html>

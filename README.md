@@ -18,13 +18,24 @@ O SmarTown centraliza esses registros. O cidadão cadastra a ocorrência com cat
 
 ## 2. Funcionalidades
 
-| Funcionalidade | Situação |
+| Funcionalidade | Como funciona |
 |---|---|
-| Cadastro de ocorrências com validação de descrição, categoria, bairro e nível de urgência | ⏳ em desenvolvimento |
-| Listagem com filtro por categoria e por status | ⏳ em desenvolvimento |
-| Atualização da situação da ocorrência (Aberta / Resolvida) | ⏳ em desenvolvimento |
-| Resumo quantitativo dos chamados | ⏳ em desenvolvimento |
-| Exibição da versão e do commit publicados, no rodapé | ✅ implementado |
+| Cadastro de ocorrências | Categoria, descrição, bairro e urgência, com mensagem de erro em cada campo |
+| Listagem com filtros | Da mais recente para a mais antiga, com filtro por status e por categoria |
+| Atualização da situação | Cada ocorrência pode ser marcada como **Resolvida** ou reaberta (**Aberta**) |
+| Resumo quantitativo | Abertas, resolvidas e total, além da contagem por categoria |
+| Versão publicada | O rodapé mostra a versão e o commit no ar |
+
+### Validação dos dados
+
+| Campo | Regra |
+|---|---|
+| Categoria | Iluminação Pública, Buracos, Descarte Irregular ou Outros |
+| Descrição | De 10 a 500 caracteres |
+| Bairro | De 2 a 60 caracteres, com pelo menos uma letra |
+| Urgência | Baixa, Média ou Alta |
+
+Espaços no início, no fim ou repetidos não contam. Uma ocorrência inválida não é salva.
 
 Os dados ficam no `localStorage` do navegador. Não há login nem banco de dados remoto.
 
@@ -43,6 +54,8 @@ Os dados ficam no `localStorage` do navegador. Não há login nem banco de dados
 | Tecnologia | Uso no projeto |
 |---|---|
 | HTML, CSS e JavaScript (módulos ES) | Aplicação, sem framework e sem compilação |
+| `localStorage` | Armazenamento das ocorrências no navegador |
+| Onest (licença OFL) | Fonte da interface, hospedada no próprio projeto |
 | Node.js 24 (`.nvmrc`) | Lint, testes e script de build |
 | `node:test` | Testes automatizados, com o executor nativo do Node |
 | ESLint | Análise estática do código |
@@ -83,7 +96,14 @@ docker run --rm -p 8080:80 smartown:local
 
 ```
 smartown/
-├── src/                      código da aplicação (index.html, css/, js/)
+├── src/                      código da aplicação
+│   ├── index.html            página única
+│   ├── css/style.css         estilos
+│   ├── js/ocorrencias.js     regras de negócio, sem acesso à tela
+│   ├── js/storage.js         leitura e gravação no localStorage
+│   ├── js/app.js             interface
+│   ├── img/                  logo, favicon e marca da UTFPR
+│   └── fonts/                fonte Onest e sua licença
 ├── tests/                    testes automatizados (*.test.js)
 ├── scripts/build.mjs         script de construção
 ├── Dockerfile                imagem de entrega (nginx + dist/)
@@ -139,7 +159,13 @@ Toda alteração mesclada na `main` é publicada automaticamente em staging, ent
 npm test
 ```
 
-Os testes ficam em `tests/` e são adicionados junto com cada funcionalidade. Eles verificam regras reais da aplicação: validação de entrada, cadastro, filtros, atualização de status, resumo e persistência. No CI, o resultado é salvo em `test-results.xml` e publicado como artefato do run.
+Os testes ficam em `tests/` e usam o executor nativo do Node.
+
+| Arquivo | O que verifica |
+|---|---|
+| `tests/build.test.js` | O build gera os arquivos obrigatórios e um `version.json` com a versão do `package.json` |
+
+As regras ficam em `src/js/ocorrencias.js`, separadas da interface, para serem testadas sem navegador. No CI, o resultado é salvo em `test-results.xml` e publicado como artefato do run.
 
 ## 9. Entrega e publicação
 
@@ -191,6 +217,7 @@ GitHub Flow com tags de release: a `main` é protegida e todo trabalho entra por
 
 - Os dados ficam no `localStorage`: são locais a cada navegador e se perdem se o navegador for limpo.
 - Não há autenticação nem moderação das ocorrências.
+- As ocorrências não podem ser editadas nem excluídas.
 - Staging e produção rodam na mesma VPS: isolados por container, mas sem redundância de hardware.
 - A interface não tem testes automatizados. Nos ambientes publicados, verifica-se apenas se o `version.json` responde com o commit esperado.
 - O monitoramento se limita à verificação feita logo após o deploy.
