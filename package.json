@@ -1,6 +1,6 @@
 {
   "name": "smartown",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "SmarTown: registro e acompanhamento de problemas urbanos (Operação Deploy, UTFPR).",
   "private": true,
   "type": "module",
