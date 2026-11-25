@@ -3,7 +3,7 @@ import { execFileSync } from 'node:child_process';
 
 const SRC = 'src';
 const DIST = 'dist';
-const OBRIGATORIOS = ['index.html', 'css/style.css', 'js/app.js'];
+const OBRIGATORIOS = ['index.html', 'css/style.css', 'js/app.js', 'js/ocorrencias.js', 'js/storage.js'];
 
 function commitAtual() {
   if (process.env.GITHUB_SHA) return process.env.GITHUB_SHA;
