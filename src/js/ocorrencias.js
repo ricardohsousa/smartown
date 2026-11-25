@@ -48,7 +48,7 @@ export function criarOcorrencia(lista, dados) {
     categoria: dados.categoria,
     bairro: normalizar(dados.bairro),
     urgencia: dados.urgencia,
-    status: STATUS.ABERTA,
+    status: 'Pendente',
     criadaEm: new Date().toISOString(),
   };
   return [nova, ...lista];
